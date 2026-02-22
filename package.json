@@ -1,6 +1,6 @@
 {
     "name": "rsync-docs",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "type": "module",
     "description": "Documentation interactive Rsync avec React et TypeScript",
     "scripts": {
