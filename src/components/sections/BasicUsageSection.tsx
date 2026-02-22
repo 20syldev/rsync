@@ -151,6 +151,97 @@ rsync -av /home/user/documents /backup/
                 </div>
             </div>
 
+            {/* Décomposition de -a */}
+            <div>
+                <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
+                    Que signifie <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">-a</code> (--archive) exactement ?
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">-a</code> est un
+                    raccourci pour sept flags combinés. Voici ce que chacun fait :
+                </p>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                                <th className="py-3 px-4 font-semibold text-zinc-900 dark:text-zinc-100">
+                                    Flag
+                                </th>
+                                <th className="py-3 px-4 font-semibold text-zinc-900 dark:text-zinc-100">
+                                    Forme longue
+                                </th>
+                                <th className="py-3 px-4 font-semibold text-zinc-900 dark:text-zinc-100">
+                                    Ce qui est préservé
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-zinc-600 dark:text-zinc-400">
+                            <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
+                                <td className="py-3 px-4 font-mono">-r</td>
+                                <td className="py-3 px-4 font-mono">--recursive</td>
+                                <td className="py-3 px-4">Copie dans les sous-dossiers</td>
+                            </tr>
+                            <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
+                                <td className="py-3 px-4 font-mono">-l</td>
+                                <td className="py-3 px-4 font-mono">--links</td>
+                                <td className="py-3 px-4">
+                                    Liens symboliques (copié tel quel, pas la cible)
+                                </td>
+                            </tr>
+                            <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
+                                <td className="py-3 px-4 font-mono">-p</td>
+                                <td className="py-3 px-4 font-mono">--perms</td>
+                                <td className="py-3 px-4">
+                                    Permissions fichier (chmod — ex: 755, 644)
+                                </td>
+                            </tr>
+                            <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
+                                <td className="py-3 px-4 font-mono">-t</td>
+                                <td className="py-3 px-4 font-mono">--times</td>
+                                <td className="py-3 px-4">
+                                    Date de modification (mtime) — critique pour les synchros suivantes
+                                </td>
+                            </tr>
+                            <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
+                                <td className="py-3 px-4 font-mono">-g</td>
+                                <td className="py-3 px-4 font-mono">--group</td>
+                                <td className="py-3 px-4">Groupe propriétaire (gid)</td>
+                            </tr>
+                            <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
+                                <td className="py-3 px-4 font-mono">-o</td>
+                                <td className="py-3 px-4 font-mono">--owner</td>
+                                <td className="py-3 px-4">
+                                    Propriétaire (uid) — nécessite les droits root
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="py-3 px-4 font-mono">-D</td>
+                                <td className="py-3 px-4 font-mono">--devices --specials</td>
+                                <td className="py-3 px-4">
+                                    Fichiers device spéciaux et sockets (root uniquement)
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div className="p-4 rounded-lg border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/10 mt-3">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                        <strong>
+                            <Lightbulb size={16} className="inline mr-1" /> Attention :
+                        </strong>{' '}
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">-a</code> ne
+                        préserve <strong>pas</strong> les ACL (
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">-A</code>),
+                        les attributs étendus (
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">-X</code>),
+                        ni les hard links (
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">-H</code>).
+                        Pour une sauvegarde système complète, utilisez{' '}
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">-aAXH</code>.
+                    </p>
+                </div>
+            </div>
+
             {/* Exemples concrets */}
             <div>
                 <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
@@ -158,18 +249,63 @@ rsync -av /home/user/documents /backup/
                 </h3>
                 <CodeBlock
                     title="Terminal"
-                    code={`# Sauvegarder un dossier en local
-rsync -avh /home/user/documents/ /mnt/backup/documents/
-
-# Résultat :
-# sending incremental file list
-# rapport.pdf
-# photos/vacances.jpg
-# photos/famille.png
-#
-# sent 15.42M bytes  received 1.23K bytes  10.28M bytes/sec
-# total size is 15.42M  speedup is 1.00`}
+                    code={`rsync -avh /home/user/documents/ /mnt/backup/documents/`}
                 />
+                <CodeBlock
+                    title="Sortie terminal"
+                    code={`sending incremental file list
+rapport.pdf
+photos/
+photos/vacances.jpg
+photos/famille.png
+
+sent 15,42M bytes  received 1,23K bytes  10,28M bytes/sec
+total size is 15,42M  speedup is 1,00`}
+                />
+                <ul className="mt-3 space-y-1 text-sm text-zinc-600 dark:text-zinc-400 list-disc pl-5">
+                    <li>
+                        <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">
+                            sending incremental file list
+                        </code>{' '}
+                        — rsync construit sa liste à la volée (mode incrémental, défaut depuis rsync
+                        3.0).
+                    </li>
+                    <li>
+                        Les lignes suivantes — chaque fichier transféré est affiché. Les dossiers se
+                        terminent par <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">/</code>.
+                    </li>
+                    <li>
+                        <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">
+                            speedup is 1,00
+                        </code>{' '}
+                        — ratio d'efficacité. Pour une copie initiale, tous les fichiers sont
+                        transférés : speedup = 1,00 (aucune économie delta). Lors des synchros
+                        suivantes, ce chiffre augmente.
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2 mt-2">
+                    Deuxième exécution (aucun fichier modifié)
+                </h3>
+                <CodeBlock
+                    title="Terminal"
+                    code={`rsync -avh /home/user/documents/ /mnt/backup/documents/`}
+                />
+                <CodeBlock
+                    title="Sortie terminal"
+                    code={`sending incremental file list
+
+sent 223 bytes  received 12 bytes  470,00 bytes/sec
+total size is 15,42M  speedup is 65,99`}
+                />
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                    Un <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">speedup</code> de{' '}
+                    65,99 signifie que rsync n'a transféré que 1/66e de la taille totale des
+                    fichiers — uniquement les métadonnées pour vérifier que tout est à jour. Aucun
+                    contenu n'a été retransféré.
+                </p>
             </div>
 
             <div>

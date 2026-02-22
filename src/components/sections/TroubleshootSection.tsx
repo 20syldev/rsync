@@ -1,5 +1,5 @@
 import { CodeBlock } from '../CodeBlock';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, AlertTriangle } from 'lucide-react';
 
 export const TroubleshootSection = () => {
     return (
@@ -195,6 +195,48 @@ cat /etc/rsyncd.secrets
 grep -A5 '\\[backup\\]' /etc/rsyncd.conf`}
                         />
                     </div>
+                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                        <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            Continuer malgré les erreurs
+                        </h4>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
+                            Par défaut, rsync stoppe si trop d'erreurs surviennent. Ces options
+                            forcent la continuation :
+                        </p>
+                        <CodeBlock
+                            title="Terminal"
+                            code={`# --ignore-errors : continuer même si des fichiers I/O échouent
+# Utile quand certains fichiers sont verrouillés ou inaccessibles
+rsync -avh --ignore-errors /source/ /dest/
+
+# --ignore-missing-args : ne pas échouer si une source n'existe pas encore
+rsync -avh --ignore-missing-args /source/optionnel/ /dest/
+
+# Combinaison pour les sauvegardes tolérantes aux erreurs
+rsync -avh --ignore-errors --ignore-missing-args \\
+  --exclude-from=/etc/rsync-excludes.txt \\
+  /home/ /backup/
+EXIT_CODE=$?
+# Codes 23 et 24 sont bénins — ne pas les traiter comme des erreurs
+if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 23 ] && [ $EXIT_CODE -ne 24 ]; then
+    echo "Erreur fatale rsync : code $EXIT_CODE"
+    exit $EXIT_CODE
+fi`}
+                        />
+                        <div className="p-4 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/10 mt-3">
+                            <p className="text-sm text-amber-800 dark:text-amber-300">
+                                <strong>
+                                    <AlertTriangle size={16} className="inline mr-1" /> Attention :
+                                </strong>{' '}
+                                <code className="bg-amber-100 dark:bg-amber-800/30 px-1 rounded">
+                                    --ignore-errors
+                                </code>{' '}
+                                peut masquer des problèmes réels. Utilisez-le uniquement quand vous
+                                savez que certains fichiers seront inaccessibles (ex: fichiers
+                                verrouillés par une application active). Consultez toujours les logs.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -231,6 +273,29 @@ ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`}
                             code={`# En LAN, désactiver la compression (CPU > réseau)
 rsync -avh --whole-file /source/ user@serveur:/dest/
 # --whole-file désactive l'algorithme delta (plus rapide en LAN)`}
+                        />
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-3">
+                            <strong>Pourquoi{' '}
+                            <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">
+                                --whole-file
+                            </code>{' '}
+                            est plus rapide en LAN :</strong> l'algorithme delta de rsync doit lire
+                            chaque fichier de destination, calculer des checksums par blocs, puis
+                            comparer avec la source. Ce calcul coûte du temps CPU et I/O disque. Sur
+                            un LAN Gigabit (125 Mo/s), la bande passante réseau dépasse souvent le
+                            débit de lecture disque — il est alors plus rapide d'envoyer le fichier
+                            entier que de calculer les deltas.{' '}
+                            <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">
+                                --whole-file
+                            </code>{' '}
+                            est activé automatiquement pour les copies locales (même machine).
+                        </p>
+                        <CodeBlock
+                            title="Terminal"
+                            code={`# Profil LAN optimal : pas de delta, pas de compression, cipher rapide
+rsync -avh --whole-file \\
+  -e "ssh -o Compression=no -c aes128-gcm@openssh.com" \\
+  /source/ user@serveur-lan:/dest/`}
                         />
                     </div>
 
@@ -279,6 +344,9 @@ tar czf - /source/ | ssh user@serveur "tar xzf - -C /dest/"`}
                                 <th className="py-2 px-4 font-semibold text-zinc-900 dark:text-zinc-100">
                                     Signification
                                 </th>
+                                <th className="py-2 px-4 font-semibold text-zinc-900 dark:text-zinc-100">
+                                    Cause fréquente / Action
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="text-zinc-600 dark:text-zinc-400">
@@ -287,19 +355,27 @@ tar czf - /source/ | ssh user@serveur "tar xzf - -C /dest/"`}
                                     0
                                 </td>
                                 <td className="py-2 px-4">Succès</td>
+                                <td className="py-2 px-4">—</td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono">1</td>
                                 <td className="py-2 px-4">Erreur de syntaxe ou d'utilisation</td>
+                                <td className="py-2 px-4">Option inconnue ou chemin manquant</td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono">2</td>
                                 <td className="py-2 px-4">Incompatibilité de protocole</td>
+                                <td className="py-2 px-4">
+                                    Versions rsync très différentes entre source et destination
+                                </td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono">3</td>
                                 <td className="py-2 px-4">
                                     Erreurs de sélection de fichiers/dossiers
+                                </td>
+                                <td className="py-2 px-4">
+                                    Règles --include/--exclude mal configurées
                                 </td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
@@ -307,28 +383,42 @@ tar czf - /source/ | ssh user@serveur "tar xzf - -C /dest/"`}
                                 <td className="py-2 px-4">
                                     Erreur de démarrage du protocole client-serveur
                                 </td>
+                                <td className="py-2 px-4">
+                                    rsync non installé côté distant, ou chemin incorrect
+                                </td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono">10</td>
                                 <td className="py-2 px-4">Erreur I/O socket</td>
+                                <td className="py-2 px-4">
+                                    Connexion réseau coupée ou timeout SSH
+                                </td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono">11</td>
                                 <td className="py-2 px-4">Erreur I/O fichier</td>
+                                <td className="py-2 px-4">
+                                    Disque plein, permissions refusées en lecture/écriture
+                                </td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono">12</td>
                                 <td className="py-2 px-4">
                                     Erreur dans le flux de données du protocole
                                 </td>
+                                <td className="py-2 px-4">
+                                    Message parasite sur stdout côté serveur (bashrc, motd)
+                                </td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono">14</td>
                                 <td className="py-2 px-4">Erreur IPC</td>
+                                <td className="py-2 px-4">Problème de communication inter-processus</td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono">20</td>
                                 <td className="py-2 px-4">Signal reçu (SIGUSR1, SIGINT)</td>
+                                <td className="py-2 px-4">Ctrl+C ou kill envoyé au processus</td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">
@@ -338,6 +428,9 @@ tar czf - /source/ | ssh user@serveur "tar xzf - -C /dest/"`}
                                     Transfert partiel — certains fichiers n'ont pas pu être
                                     transférés
                                 </td>
+                                <td className="py-2 px-4">
+                                    Permissions manquantes → utiliser --ignore-errors si attendu
+                                </td>
                             </tr>
                             <tr className="border-b border-zinc-100 dark:border-zinc-800/50">
                                 <td className="py-2 px-4 font-mono font-bold text-amber-600 dark:text-amber-400">
@@ -346,10 +439,17 @@ tar czf - /source/ | ssh user@serveur "tar xzf - -C /dest/"`}
                                 <td className="py-2 px-4">
                                     Fichiers disparus pendant le transfert (souvent bénin)
                                 </td>
+                                <td className="py-2 px-4">
+                                    Fichiers temp/logs supprimés en cours de synchro — traiter comme
+                                    succès dans les scripts
+                                </td>
                             </tr>
                             <tr>
                                 <td className="py-2 px-4 font-mono">30</td>
                                 <td className="py-2 px-4">Timeout en envoi/réception de données</td>
+                                <td className="py-2 px-4">
+                                    Connexion lente ou serveur surchargé — augmenter --timeout
+                                </td>
                             </tr>
                         </tbody>
                     </table>

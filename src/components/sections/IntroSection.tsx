@@ -1,5 +1,6 @@
 import { Badge } from '../Badge';
-import { Zap, FolderSync, Shield, ArrowRightLeft } from 'lucide-react';
+import { CodeBlock } from '../CodeBlock';
+import { Zap, FolderSync, Shield, ArrowRightLeft, Lightbulb } from 'lucide-react';
 
 export const IntroSection = () => {
     return (
@@ -114,6 +115,68 @@ export const IntroSection = () => {
                     <code>user@host:chemin</code>). Consultez les sections suivantes pour des
                     exemples détaillés.
                 </p>
+            </div>
+
+            {/* Première commande */}
+            <div>
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-3">
+                    Votre première commande rsync
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
+                    Voici un exemple complet avec ce que rsync affiche réellement dans le terminal :
+                </p>
+                <CodeBlock
+                    title="Terminal"
+                    code={`rsync -avh ~/Documents/ /media/disque-externe/Documents/`}
+                />
+                <CodeBlock
+                    title="Sortie terminal"
+                    code={`sending incremental file list
+rapport-Q4.pdf
+factures/
+factures/2026-01.pdf
+factures/2026-02.pdf
+photos/
+photos/anniversaire.jpg
+
+sent 47,23M bytes  received 1,12K bytes  9,45M bytes/sec
+total size is 47,23M  speedup is 1,00`}
+                />
+                <ul className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-zinc-400 list-disc pl-5">
+                    <li>
+                        <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">
+                            sending incremental file list
+                        </code>{' '}
+                        — rsync liste les fichiers à transférer en temps réel ("incremental" signifie
+                        qu'il construit la liste pendant le transfert, pas avant).
+                    </li>
+                    <li>
+                        Les lignes de fichiers — chaque élément transféré est affiché. Les dossiers
+                        se terminent par{' '}
+                        <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">/</code>.
+                    </li>
+                    <li>
+                        <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">
+                            speedup is 1,00
+                        </code>{' '}
+                        — lors d'une première copie, tous les fichiers sont transférés. Lors des
+                        synchros suivantes, ce chiffre sera bien supérieur à 1 (ex: 45 signifie que
+                        rsync n'a transféré que 1/45e de la taille totale).
+                    </li>
+                </ul>
+                <div className="p-4 rounded-lg border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/10 mt-4">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                        <strong>
+                            <Lightbulb size={16} className="inline mr-1" /> Bonne pratique :
+                        </strong>{' '}
+                        Ajoutez{' '}
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">-n</code>{' '}
+                        pour simuler sans rien modifier :{' '}
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">
+                            rsync -avhn ~/Documents/ /media/disque-externe/Documents/
+                        </code>
+                    </p>
+                </div>
             </div>
         </div>
     );

@@ -38,6 +38,30 @@ rsync -avhP -e "ssh -p 2222" /home/user/projet/ user@serveur.com:/var/www/projet
 # Avec une clé SSH spécifique
 rsync -avhP -e "ssh -i ~/.ssh/id_deploy" /home/user/projet/ user@serveur.com:/var/www/projet/`}
                 />
+                <CodeBlock
+                    title="Sortie terminal (avec -P)"
+                    code={`sending incremental file list
+index.html
+         8,42K 100%    0,00kB/s    0:00:00 (xfr#1, to-chk=42/44)
+app.js
+     1,23M  67%  456,12kB/s    0:00:01
+     1,84M 100%  523,44kB/s    0:00:03 (xfr#2, to-chk=41/44)
+assets/logo.png
+       124,5K 100%  412,33kB/s    0:00:00 (xfr#3, to-chk=40/44)
+
+sent 3,21M bytes  received 2,14K bytes  654,22kB/s
+total size is 12,45M  speedup is 3,87`}
+                />
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 mb-2">
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">
+                        to-chk=40/44
+                    </code>{' '}
+                    — 40 fichiers restants à vérifier sur 44 au total.{' '}
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">xfr#3</code> — 3e
+                    fichier effectivement transféré (les autres étaient déjà à jour).{' '}
+                    <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">speedup is 3,87</code>{' '}
+                    — les fichiers inchangés ont évité 3× leur taille en transfert réseau.
+                </p>
 
                 <h4 className="font-medium text-zinc-900 dark:text-zinc-100 mb-2 mt-6">
                     Pull — Récupérer des fichiers depuis un serveur
@@ -197,6 +221,46 @@ echo "MotDePasseSecret123" > ~/.rsync-password
 chmod 600 ~/.rsync-password
 rsync -avhP --password-file=~/.rsync-password /data/ backupuser@serveur::backup/`}
                 />
+            </div>
+
+            {/* Tunnel SSH vers daemon */}
+            <div className="mt-6">
+                <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
+                    Tunnel SSH vers un daemon rsync (chiffrement du mode daemon)
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
+                    Pour utiliser le mode daemon (port 873) avec chiffrement, créez un tunnel SSH
+                    qui redirige un port local vers le port 873 du serveur. Toutes les données
+                    transitent alors par SSH.
+                </p>
+                <CodeBlock
+                    title="Terminal"
+                    code={`# 1. Créer le tunnel SSH en arrière-plan
+ssh -f -N -L 8873:localhost:873 user@serveur.com
+
+# 2. Synchroniser via le tunnel (utiliser localhost avec le port redirigé)
+rsync -avhP --port=8873 /data/ rsync://backupuser@localhost/backup/
+
+# Ou en une seule commande (tunnel intégré à rsync)
+rsync -avhP \\
+  -e "ssh -L 8873:localhost:873 -o ExitOnForwardFailure=yes" \\
+  /data/ rsync://backupuser@localhost/backup/
+
+# Fermer le tunnel après usage
+pkill -f "ssh -f -N -L 8873"`}
+                />
+                <div className="p-4 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/10 mt-3">
+                    <p className="text-sm text-amber-800 dark:text-amber-300">
+                        <strong>
+                            <AlertTriangle size={16} className="inline mr-1" /> Cas d'usage
+                            spécifique :
+                        </strong>{' '}
+                        Cette technique est utile uniquement si vous avez besoin des fonctionnalités
+                        du mode daemon (modules, authentification par secrets) sur un réseau non
+                        sécurisé. Dans la grande majorité des cas, le{' '}
+                        <strong>mode SSH natif est plus simple et tout aussi sécurisé</strong>.
+                    </p>
+                </div>
             </div>
 
             {/* Comparaison SSH vs Daemon */}

@@ -1,5 +1,5 @@
 import { CodeBlock } from '../CodeBlock';
-import { Lightbulb, Settings, FileText } from 'lucide-react';
+import { Lightbulb, Settings, FileText, Clock } from 'lucide-react';
 
 export const AutomationSection = () => {
     return (
@@ -17,7 +17,7 @@ export const AutomationSection = () => {
             {/* Cron */}
             <div className="p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 shadow-sm">
                 <h3 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">
-                    ⏰ Planification avec cron
+                    <Clock size={20} className="inline mr-2" /> Planification avec cron
                 </h3>
                 <CodeBlock
                     title="Terminal"
@@ -69,6 +69,7 @@ crontab -e`}
 Description=Sauvegarde rsync quotidienne
 After=network-online.target
 Wants=network-online.target
+OnFailure=rsync-backup-notify@%n.service
 
 [Service]
 Type=oneshot
@@ -77,11 +78,60 @@ ExecStart=/usr/bin/rsync -avh --delete \\
     --exclude-from=/etc/rsync-excludes.txt \\
     -e "ssh -i /root/.ssh/id_rsync" \\
     /home/ backupuser@backup.srv:/backup/homes/
-# Notification en cas d'échec (optionnel)
-ExecStartPost=/bin/bash -c 'if [ $EXIT_STATUS -ne 0 ]; then echo "Rsync backup failed" | mail -s "Backup Error" admin@example.com; fi'
 StandardOutput=journal
 StandardError=journal`}
                 />
+
+                <h4 className="font-medium text-zinc-900 dark:text-zinc-100 mb-2 mt-6">
+                    Service de notification (template unit)
+                </h4>
+                <CodeBlock
+                    title="/etc/systemd/system/rsync-backup-notify@.service"
+                    code={`[Unit]
+Description=Notification d'échec sauvegarde rsync
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'echo "Le service %i a échoué" | mail -s "Backup rsync FAILED" admin@example.com'`}
+                />
+                <div className="p-4 rounded-lg border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/10 mt-3">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                        <strong>
+                            <Lightbulb size={16} className="inline mr-1" /> Pourquoi{' '}
+                            <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">
+                                OnFailure=
+                            </code>{' '}
+                            et pas{' '}
+                            <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">
+                                ExecStartPost=
+                            </code>{' '}
+                            ?
+                        </strong>{' '}
+                        Pour un service{' '}
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">
+                            Type=oneshot
+                        </code>
+                        ,{' '}
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">
+                            ExecStartPost=
+                        </code>{' '}
+                        ne voit pas le code de sortie de{' '}
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">
+                            ExecStart=
+                        </code>{' '}
+                        — la variable{' '}
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">
+                            $EXIT_STATUS
+                        </code>{' '}
+                        n'existe pas dans ce contexte.{' '}
+                        <code className="bg-blue-100 dark:bg-blue-800/30 px-1 rounded">
+                            OnFailure=
+                        </code>{' '}
+                        est la seule approche fiable pour déclencher une action uniquement en cas
+                        d'échec.
+                    </p>
+                </div>
 
                 <h4 className="font-medium text-zinc-900 dark:text-zinc-100 mb-2 mt-6">
                     Fichier timer
@@ -232,6 +282,73 @@ du -sh /backup/snapshots/*/
 # 200M  /backup/snapshots/2026-02-06_02-00/  ← seulement les diffs
 # 150M  /backup/snapshots/2026-02-07_02-00/  ← seulement les diffs`}
                 />
+            </div>
+
+            {/* Script sauvegarde distante */}
+            <div className="mt-6">
+                <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2">
+                    Variante : sauvegarde distante (SSH + --link-dest)
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                    Adaptation du script précédent pour sauvegarder vers un serveur SSH distant en
+                    conservant les snapshots incrémentaux. Les hard links sont créés côté serveur.
+                </p>
+                <CodeBlock
+                    title="backup-remote.sh"
+                    code={`#!/bin/bash
+set -euo pipefail
+
+SOURCE="/home/"
+REMOTE_USER="backupuser"
+REMOTE_HOST="backup.srv"
+REMOTE_BASE="/backup/snapshots"
+SSH_KEY="/root/.ssh/id_rsync"
+EXCLUDE_FILE="/etc/rsync-excludes.txt"
+LOG_FILE="/var/log/rsync-remote.log"
+DATE=$(date +%F_%H-%M)
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
+
+# Trouver le dernier snapshot sur le serveur DISTANT
+LATEST=$(ssh -i "$SSH_KEY" "$REMOTE_USER@$REMOTE_HOST" \\
+    "ls -dt \${REMOTE_BASE}/*/ 2>/dev/null | head -1" || true)
+
+LINK_DEST_OPT=""
+if [ -n "$LATEST" ]; then
+    LINK_DEST_OPT="--link-dest=$LATEST"
+    log "Link-dest distant : $LATEST"
+else
+    log "Pas de snapshot précédent (backup complet)"
+fi
+
+log "=== Début sauvegarde distante ==="
+rsync -avhz --delete \\
+    --exclude-from="$EXCLUDE_FILE" \\
+    -e "ssh -i $SSH_KEY" \\
+    $LINK_DEST_OPT \\
+    "$SOURCE" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_BASE/$DATE/" \\
+    >> "$LOG_FILE" 2>&1
+
+EXIT_CODE=$?
+if [ $EXIT_CODE -eq 0 ] || [ $EXIT_CODE -eq 24 ]; then
+    log "SUCCESS: $REMOTE_BASE/$DATE"
+else
+    log "ERROR: rsync a échoué (code $EXIT_CODE)"
+    exit $EXIT_CODE
+fi`}
+                />
+                <div className="p-4 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/10 mt-3">
+                    <p className="text-sm text-amber-800 dark:text-amber-300">
+                        <strong>Important :</strong> Avec{' '}
+                        <code className="bg-amber-100 dark:bg-amber-800/30 px-1 rounded">
+                            --link-dest
+                        </code>{' '}
+                        vers un serveur distant, les hard links sont créés côté serveur — rsync ne
+                        transfère que les blocs modifiés, mais chaque snapshot reste consultable
+                        comme une copie complète. Les hard links ne fonctionnent qu'au sein du même
+                        système de fichiers sur le serveur.
+                    </p>
+                </div>
             </div>
 
             {/* Fichier d'exclusion */}
