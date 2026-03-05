@@ -1,4 +1,4 @@
-name: Deploy to rsync.sylvain.pro
+name: Deploy to rsync.sylvain.sh
 
 on:
     push:
